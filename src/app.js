@@ -5,44 +5,57 @@ import shortid from "shortid";
 
 const DEVELOP = 'develop';
 const MASTER = 'master';
+const SAFE = 'safe';
 
 const masterID = shortid.generate();
 const developID = shortid.generate();
+const safeId = shortid.generate();
 
-const seedData = () => {
-
-    const commits = [
-        {
-            id: shortid.generate(),
-            branch: masterID,
-            gridIndex: 1,
-            parents: null,
-        },
-        {
-            id: shortid.generate(),
-            branch: developID,
-            gridIndex: 1,
-            parents: null
-        }
-    ];
-    return {
-        branches: [
-            {
-                name: MASTER,
-                id: masterID,
-                canCommit: false,
-                color: '#E040FB',
-            },
-            {
-                name: DEVELOP,
-                id: developID,
-                canCommit: true,
-                color: '#FF8A65',
-            }
-        ],
-        commits
+const DEFAULT_COMMITS = [
+    {
+        id: shortid.generate(),
+        branch: masterID,
+        gridIndex: 1,
+        parents: null,
+    },
+    {
+        id: shortid.generate(),
+        branch: safeId,
+        gridIndex: 1,
+        parents: null,
+    },
+    {
+        id: shortid.generate(),
+        branch: developID,
+        gridIndex: 1,
+        parents: null
+    },
+];
+const DEFAULT_BRANCHES = [
+    {
+        name: MASTER,
+        id: masterID,
+        canCommit: false,
+        color: '#E040FB',
+    },
+    {
+        name: SAFE,
+        id: safeId,
+        canCommit: false,
+        color: '#E040FB',
+    },
+    {
+        name: DEVELOP,
+        id: developID,
+        canCommit: true,
+        color: '#FF8A65',
     }
-};
+];
+
+const seedData = () => ({
+    branches: [...DEFAULT_BRANCHES],
+    commits: [...DEFAULT_COMMITS],
+});
 
 const AppElm = styled.main`
   text-align: center;
@@ -54,6 +67,12 @@ class App extends Component {
     state = {
         project: seedData()
     };
+    
+    reset = () => {
+        this.setState({
+            project: seedData(),
+        });
+    }
 
     handleCommit = (branchID, mergeGridIndex = 0) => {
         let {commits} = this.state.project;
@@ -135,9 +154,9 @@ class App extends Component {
         let {branches, commits} = this.state.project;
         let releaseBranches = branches.filter(b => b.releaseBranch);
         let releaseBranchName = 'release ' + ((releaseBranches || []).length + 1);
-        let developCommits = commits.filter(c => c.branch === developID);
-        const lastDevelopCommit = developCommits[developCommits.length - 1];
-        let releaseOffset = lastDevelopCommit.gridIndex + 1;
+        let safeCommits = commits.filter(c => c.branch === safeId);
+        const lastSafeCommit = safeCommits[safeCommits.length - 1];
+        let releaseOffset = lastSafeCommit.gridIndex + 1;
         let newBranch = {
             id: shortid.generate(),
             name: releaseBranchName,
@@ -149,7 +168,7 @@ class App extends Component {
             id: shortid.generate(),
             branch: newBranch.id,
             gridIndex: releaseOffset,
-            parents: [lastDevelopCommit.id]
+            parents: [lastSafeCommit.id]
         };
         commits.push(newCommit);
         branches.push(newBranch);
@@ -167,9 +186,11 @@ class App extends Component {
         const sourceCommits = commits.filter(c => c.branch === sourceBranchID);
 
         const masterCommits = commits.filter(c => c.branch === masterID);
+        const safeCommits = commits.filter(c => c.branch === safeId);
         const developCommits = commits.filter(c => c.branch === developID);
         const lastSourceCommit = sourceCommits[sourceCommits.length - 1];
         const lastMasterCommit = masterCommits[masterCommits.length - 1];
+        const lastSafeCommit = safeCommits[safeCommits.length - 1];
         const lastDevelopCommit = developCommits[developCommits.length - 1];
 
         const masterMergeCommit = {
@@ -177,6 +198,13 @@ class App extends Component {
             branch: masterID,
             gridIndex: Math.max(lastSourceCommit.gridIndex, lastMasterCommit.gridIndex) + 1,
             parents: [lastMasterCommit.id, lastSourceCommit.id]
+        };
+        
+        const safeMergeCommit = {
+            id: shortid.generate(),
+            branch: safeId,
+            gridIndex: Math.max(lastSourceCommit.gridIndex, lastSafeCommit.gridIndex) + 1,
+            parents: [lastSafeCommit.id, lastSourceCommit.id],
         };
 
         const developMergeCommit = {
@@ -186,7 +214,7 @@ class App extends Component {
             parents: [lastDevelopCommit.id, lastSourceCommit.id]
         };
 
-        commits.push(masterMergeCommit, developMergeCommit);
+        commits.push(masterMergeCommit, safeMergeCommit, developMergeCommit);
         sourceBranch.merged = true;
 
         this.setState({
@@ -201,6 +229,7 @@ class App extends Component {
     handleMerge = (sourceBranchID, targetBranchID = developID) => {
         let {branches, commits} = this.state.project;
 
+        const developBranch = branches.find(b => b.id === developID);
         const sourceBranch = branches.find(b => b.id === sourceBranchID);
         const sourceCommits = commits.filter(c => c.branch === sourceBranchID);
         const targetCommits = commits.filter(c => c.branch === targetBranchID);
@@ -216,7 +245,8 @@ class App extends Component {
         };
         commits.push(mergeCommit);
 
-        sourceBranch.merged = true;
+        if (sourceBranchID !== developID)
+            sourceBranch.merged = true;
 
         this.setState({
             project: {
@@ -260,6 +290,7 @@ class App extends Component {
                     onNewRelease={this.handleNewRelease}
                     onDeleteBranch={this.handleDeleteBranch}
                     onNewHotFix={this.handleNewHotFix}
+                    reset={this.reset}
                 />
             </AppElm>
         );
