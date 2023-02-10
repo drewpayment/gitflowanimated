@@ -42,7 +42,7 @@ const DEFAULT_BRANCHES = [
         name: SAFE,
         id: safeId,
         canCommit: false,
-        color: '#E040FB',
+        color: '#129399',
     },
     {
         name: DEVELOP,
